@@ -24,14 +24,18 @@ def _import_ytdlp():
 
 
 def _format_for(fmt: str) -> str:
-    """Map our '720' / '1080' shorthand to a yt-dlp format selector."""
+    """Map our '720' / '1080' shorthand to a yt-dlp format selector with fallback."""
     try:
         height = int(fmt)
     except ValueError:
         height = 720
+    # Fallback: if exact height not available, get best available up to that height
     return (
         f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/"
-        f"best[height<={height}][ext=mp4]/best"
+        f"bestvideo[height<={height}]+bestaudio/"
+        f"best[height<={height}][ext=mp4]/"
+        f"best[ext=mp4]/"
+        f"best"
     )
 
 
@@ -120,10 +124,21 @@ def download_youtube_local(video_url: str, fmt: str = "720", out_dir: Optional[s
         "noprogress": True,
     }
 
+    # Use cookies if available (helps with bot detection and age-restricted videos)
+    if os.path.exists("cookies.txt"):
+        ydl_opts["cookiefile"] = "cookies.txt"
+    
+    # Try multiple player clients for better format availability
+    ydl_opts.setdefault("extractor_args", {}).setdefault("youtube", {})["player_client"] = [
+        "web",
+        "ios",
+        "android",
+        "mweb",
+    ]
+
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(video_url, download=True)
         path = ydl.prepare_filename(info)
-        # merge_output_format may rename the extension after merge
         if not os.path.exists(path):
             stem, _ = os.path.splitext(path)
             for ext in (".mp4", ".mkv", ".webm"):
