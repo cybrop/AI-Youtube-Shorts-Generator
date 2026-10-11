@@ -23,22 +23,6 @@ def _import_ytdlp():
     return yt_dlp
 
 
-def _format_for(fmt: str) -> str:
-    """Map our '720' / '1080' shorthand to a yt-dlp format selector with fallback."""
-    try:
-        height = int(fmt)
-    except ValueError:
-        height = 720
-    # Fallback: if exact height not available, get best available up to that height
-    return (
-        f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/"
-        f"bestvideo[height<={height}]+bestaudio/"
-        f"best[height<={height}][ext=mp4]/"
-        f"best[ext=mp4]/"
-        f"best"
-    )
-
-
 def _extract_youtube_video_id(source: str) -> Optional[str]:
     """Best-effort extraction of a YouTube video id from a URL."""
     parsed = urlparse(source)
@@ -116,7 +100,7 @@ def download_youtube_local(video_url: str, fmt: str = "720", out_dir: Optional[s
 
     print(f"[download/local] {video_url} @ {fmt}p → {out_dir}/", flush=True)
     ydl_opts = {
-        "format": _format_for(fmt),
+        "format": "bestvideo+bestaudio/best",
         "outtmpl": os.path.join(out_dir, "source_%(id)s.%(ext)s"),
         "merge_output_format": "mp4",
         "quiet": True,
