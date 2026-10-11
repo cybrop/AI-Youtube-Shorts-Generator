@@ -31,7 +31,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           cache: 'pip'
 
       - name: Install System Dependencies (ffmpeg)
@@ -47,13 +47,19 @@ jobs:
           if [ "${{ inputs.mode }}" = "local" ]; then
             pip install -r requirements-local.txt
           fi
+          pip install -U yt-dlp
 
       - name: Setup YouTube Cookies
         env:
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
           if [ -n "$YOUTUBE_COOKIES" ]; then
-            echo "$YOUTUBE_COOKIES" > cookies.txt
+            mkdir -p ~/.config/yt-dlp
+            echo "$YOUTUBE_COOKIES" > ~/.config/yt-dlp/cookies.txt
+            echo "--cookies ~/.config/yt-dlp/cookies.txt" >> ~/.config/yt-dlp/config
+            echo "YouTube cookies configured successfully."
+          else
+            echo "No YOUTUBE_COOKIES secret found."
           fi
 
       - name: Run Shorts Generator
