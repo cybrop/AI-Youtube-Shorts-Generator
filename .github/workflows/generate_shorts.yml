@@ -1,54 +1,4 @@
-name: Generate Shorts
-
-on:
-  workflow_dispatch:
-    inputs:
-      youtube_url:
-        description: 'YouTube Video URL'
-        required: true
-        type: string
-      mode:
-        description: 'Execution Mode (local or api)'
-        required: true
-        default: 'local'
-        type: choice
-        options:
-          - local
-          - api
-      num_clips:
-        description: 'Number of clips to generate'
-        required: true
-        default: '3'
-
-jobs:
-  run-generator:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install System Dependencies (ffmpeg)
-        if: ${{ inputs.mode == 'local' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-      - name: Install Python Dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          if [ "${{ inputs.mode }}" = "local" ]; then
-            pip install -r requirements-local.txt
-          fi
-
-      - name: Setup YouTube Cookies
+- name: Setup YouTube Cookies
         env:
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
@@ -66,17 +16,6 @@ jobs:
           LOCAL_WHISPER_MODEL: 'base'
           LOCAL_OUTPUT_DIR: 'output'
         run: |
-          COOKIE_ARG=""
-          if [ -f cookies.txt ]; then
-            COOKIE_ARG="--cookies cookies.txt"
-          fi
           python main.py "${{ inputs.youtube_url }}" \
             --mode ${{ inputs.mode }} \
-            --num-clips ${{ inputs.num_clips }} $COOKIE_ARG
-
-      - name: Upload Generated Shorts
-        if: ${{ inputs.mode == 'local' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-shorts
-          path: output/*.mp4
+            --num-clips ${{ inputs.num_clips }}
