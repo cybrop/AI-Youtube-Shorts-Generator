@@ -49,7 +49,7 @@ jobs:
           fi
           pip install -U yt-dlp
 
-      - name: Setup YouTube Cookies and Patch yt-dlp Options
+      - name: Setup YouTube Cookies and Configure Downloader
         env:
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
@@ -58,30 +58,26 @@ jobs:
             echo "cookies.txt created."
           fi
 
-          # Patch yt_dlp options in the codebase to use cookies and mobile client spoofing
           python -c '
-          import os, glob
+          import os
 
-          cookie_arg = "cookies.txt" if os.path.exists("cookies.txt") else None
+          target = "shorts_generator/local/downloader.py"
+          if os.path.exists(target):
+              with open(target, "r", encoding="utf-8") as f:
+                  lines = f.readlines()
 
-          for root, _, files in os.walk("."):
-              for file in files:
-                  if file.endswith(".py"):
-                      path = os.path.join(root, file)
-                      with open(path, "r", encoding="utf-8") as f:
-                          content = f.read()
-                      if "YoutubeDL(" in content:
-                          print(f"Patching {path}")
-                          old = "YoutubeDL(ydl_opts)" if "YoutubeDL(ydl_opts)" in content else "YoutubeDL({"
-                          if "ydl_opts" in content:
-                              patch = (
-                                  "ydl_opts.setdefault(\"cookiefile\", \"cookies.txt\"); "
-                                  "ydl_opts.setdefault(\"extractor_args\", {\"youtube\": {\"player_client\": [\"ios\", \"android\", \"web\"]}}); "
-                              )
-                              content = content.replace("with yt_dlp.YoutubeDL(ydl_opts)", patch + "with yt_dlp.YoutubeDL(ydl_opts)")
-                              content = content.replace("with YoutubeDL(ydl_opts)", patch + "with YoutubeDL(ydl_opts)")
-                          with open(path, "w", encoding="utf-8") as f:
-                              f.write(content)
+              new_lines = []
+              for line in lines:
+                  if "with yt_dlp.YoutubeDL(ydl_opts)" in line or "with YoutubeDL(ydl_opts)" in line:
+                      indent = line[:len(line) - len(line.lstrip())]
+                      new_lines.append(f"{indent}if os.path.exists(\"cookies.txt\"):\n")
+                      new_lines.append(f"{indent}    ydl_opts[\"cookiefile\"] = \"cookies.txt\"\n")
+                      new_lines.append(f"{indent}ydl_opts.setdefault(\"extractor_args\", {{}}).setdefault(\"youtube\", {{}})[\"player_client\"] = [\"ios\", \"android\", \"web\"]\n")
+                  new_lines.append(line)
+
+              with open(target, "w", encoding="utf-8") as f:
+                  f.writelines(new_lines)
+              print("Successfully injected yt-dlp settings.")
           '
 
       - name: Run Shorts Generator
